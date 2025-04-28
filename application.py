@@ -1,9 +1,11 @@
 from socket import *
 from struct import *
 import struct
-
+import time
 headerFormat = '!HHHH'
 
+def now():
+	return time.ctime(time.time())
 
 def createPacket(seq, ack, flags, win, data):
     header = pack(headerFormat, seq, ack, flags, win)
@@ -54,7 +56,7 @@ window = 5
 
 def startHandshake():
     global seqNum
-    windowList = [None] * window
+    windowList = []
     while True:
         sendSyn(clientSocket, serverName, serverPort)
         clientSocket.settimeout(0.4)  # 400 milliseconds
@@ -85,7 +87,10 @@ def startHandshake():
         
 def main():
     global seqNum
-    data = ""
+    base = 0
+    nextSeqNum = 0
+    windowlist = []
+    clientSocket.settimeout(0.4)
     try:
         startHandshake()
     except Exception as e:
@@ -97,19 +102,26 @@ def main():
             if not packet:
                 print("End of file reached")
                 break
+            while nextSeqNum < base + window and packet:
                 
-            data = createPacket(seqNum, ack, flags, window, packet)
+                windowlist.append(nextSeqNum)
+
+                data = createPacket(nextSeqNum, ack, flags, window, packet)
+                clientSocket.sendto(data, (serverName, serverPort))
+                
+                print(f"{now()} -- packet with seq = {nextSeqNum} is sent, sliding window = ", windowlist)
+                nextSeqNum += 1
             
             try:
-                clientSocket.sendto(data, (serverName, serverPort))
-                clientSocket.settimeout(0.4)
-                
                 message, serverAddress = clientSocket.recvfrom(2048)
                 serverAck = parseHeader(message[:8])[1]
                 
-                if serverAck == seqNum + 1:
+                if serverAck > base:
                     print(f"ACK {serverAck} received correctly")
-                    seqNum += 1
+                    base = serverAck
+
+                    if (serverAck - 1) in windowlist:
+                        windowlist.remove(serverAck - 1)
                 else:
                     print(f"ACK mismatch: expected {seqNum} but got {serverAck}")
                     
