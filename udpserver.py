@@ -92,8 +92,7 @@ while True:
         cAckNum = clientHeader[1] #the clients expected ack num from the server
         cFlags = clientHeader[2]
 
-        if ack == clientSeqNum:
-            print("Expected: ", ack, " Actual: ", clientSeqNum, "\n")
+        if ack == clientSeqNum:  
             print(message[8:].decode())
             ack += 1
             sendAck(serverSocket, clientAddress)
