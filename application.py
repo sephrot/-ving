@@ -3,7 +3,29 @@ from struct import *
 import socket
 import struct
 import time
+import sys, argparse
+
+
+ack = 1
+flags = 0
+window = 5
+nextSeqSum = 1
+
 headerFormat = '!HHHH'
+
+
+#parser = argparse.ArgumentParser(description="Optional arguments: checking IPv4 address", epilog="end of help") #sets up an arguments parser that can handle command-line inputs via variable "parser"
+#parser.add_argument('-i' , '--ip', type=str, required=True) #uses parser variable to add three arguments. Gives the argument type and if the required argument is true
+#parser.add_argument('-p' , '--port', type=int, required=True)
+#parser.add_argument('-f' , '--file', type=str, required=True)
+
+#args = parser.parse_args() #parses the command-line arguments created
+clientSocket = socket.socket(AF_INET, SOCK_DGRAM)
+
+serverName = "127.0.0.1"
+serverPort = 12000
+#filepath = args.file
+
 
 def now():
 	return time.ctime(time.time())
@@ -43,22 +65,13 @@ def sendAck(clientSocket, serverAddress):
     data = createPacket(seq,ack,flags,win,None)
     clientSocket.sendto(data, (serverAddress))
 
+def finish(clientSocket, serverName, serverPort):
+    flags = 0b1000
+    data = createPacket(nextSeqNum, ack, flags, window, None)
+    clientSocket.sendto(data, (serverName,serverPort))
 
-
-serverName = "127.0.0.1"
-serverPort = 12000
-clientSocket = socket.socket(AF_INET, SOCK_DGRAM)
-print("Connection Establishment Phase: \n")
-seqNum = 0
-ack = 1
-flags = 0
-window = 5
-nextSeqSum = 1
-
-
-def startHandshake():
+def clientHandshake():
     global seqNum
-    windowList = []
     while True:
         sendSyn(clientSocket, serverName, serverPort)
         print("SYN packet is sent")
@@ -83,25 +96,23 @@ def startHandshake():
             print("Timeout occurred! Need to retransmit or handle it.")
 
 
-def finish(clientSocket, serverName, serverPort):
-    flags = 0b1000
-    data = createPacket(nextSeqNum, ack, flags, window, None)
-    clientSocket.sendto(data, (serverName,serverPort))
-        
-def main():
+
+def clientSending():
+    print("Connection Establishment Phase: \n")
     global nextSeqNum
     base = 0
     flags = 0
     nextSeqNum = 1
+    ack = 1
     windowlist = []
     datalist = {}
     clientSocket.settimeout(0.4)
     try:
-        startHandshake()
+        clientHandshake()
     except Exception as e:
         print(e, " Some error happened during the handshake")
       
-    with open("test.txt", "rb") as f:
+    with open("test.jpg", "rb") as f:
         while True:
             while nextSeqNum <= base + window:    
                 packet = f.read(992)
@@ -146,6 +157,11 @@ def main():
                 print("Timeout occurred! Need to retransmit packet.")
                 for seq in windowlist:
                     clientSocket.sendto(datalist[seq],(serverName, serverPort))
+
+        
+def main():
+    
+    clientSending()
                 
 
 if __name__ == "__main__":

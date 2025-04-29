@@ -65,7 +65,7 @@ def serverHandshake():
             cAckNum = clientHeader[1] #the clients expected ack num from the server
             cFlags = clientHeader[2]
 
-            data = message[8:].decode()
+            data = message[8:]
 
             if cFlags == 4:
                 ack += 1
@@ -97,7 +97,7 @@ def main():
             
             clientSeqNum = clientHeader[0]
             clientFlag = clientHeader[2]
-            data = message[8:].decode()      
+            data = message[8:]     
             
             if ack == clientSeqNum:
                 print("Expected: ", ack, " Actual: ", clientSeqNum, "\n")
@@ -118,17 +118,17 @@ def main():
                 print("Fin ACK packet is sent.")
                 print("Connection Closes")
 
-                print("\n--- Assembled file from client ---")
-                for i in sorted(received_packets.keys()):
-                    print(received_packets[i], end='')
+
                 break
         except ConnectionResetError:
             print("No more data left!")
             break
           
     
-     
-       
+    with open("1.jpg", "wb") as f:
+        for i in sorted(received_packets.keys()):
+            f.write(received_packets[i])
+            
 if __name__ == "__main__":
     main()
 
