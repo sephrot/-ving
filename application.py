@@ -1,5 +1,6 @@
 from socket import *
 from struct import *
+import socket
 import struct
 import time
 headerFormat = '!HHHH'
@@ -46,12 +47,12 @@ def sendAck(clientSocket, serverAddress):
 
 serverName = "127.0.0.1"
 serverPort = 12000
-clientSocket = socket(AF_INET, SOCK_DGRAM)
+clientSocket = socket.socket(AF_INET, SOCK_DGRAM)
 print("Connection Establishment Phase: \n")
 seqNum = 0
 ack = 1
 flags = 0
-window = 25
+window = 5
 nextSeqSum = 1
 
 
@@ -60,16 +61,14 @@ def startHandshake():
     windowList = []
     while True:
         sendSyn(clientSocket, serverName, serverPort)
+        print("SYN packet is sent")
         clientSocket.settimeout(0.4)  # 400 milliseconds
 
         try:
             clientSocket.settimeout(0.4)  # 400 milliseconds
             message, serverAddress = clientSocket.recvfrom(2048) #recieves info from the server
             serverHeader = parseHeader(message[:8])
-            serverMessage = message[8:].decode() #decoding the actual message.
-            #This part focuses on dividing the header into subparts
-            serverSeqNum = serverHeader[0] #this is the sequence number for the SERVER
-            serverAckNum = serverHeader[1] #this is the servers guess about what the next CLIENT sequence number is
+            
             serverFlags = serverHeader[2] #this tells us whether SYN, ACK, FIN
 
             #Here we're going to check if the flag is a SYN
@@ -78,7 +77,7 @@ def startHandshake():
                 sendAck(clientSocket, serverAddress)
                 seqNum+=1
                 print("ACK packet is sent")
-                print("Connection Established")
+                print("Connection Established\n")
                 break  
         except timeout:
             print("Timeout occurred! Need to retransmit or handle it.")
@@ -104,13 +103,6 @@ def main():
       
     with open("test.txt", "rb") as f:
         while True:
-            
-
-            '''if not packet:
-                print("Connection Teardown:\n")
-                finish(clientSocket,serverName, serverPort)
-                print("Fin packet is sent")'''
-    
             while nextSeqNum <= base + window:    
                 packet = f.read(992)
                 if not packet:
@@ -136,16 +128,17 @@ def main():
                     clientSocket.close()
                     break
                 elif serverAck > base:
-                    print("ServerAck: ", serverAck, " Base: ", base)
-                    print(f"ACK {serverAck} received correctly")
                     base = serverAck
+                    print(f"{now()} -- ACK for packet is {serverAck} received")
                     if (serverAck) in windowlist:
-                        
                         windowlist.remove(serverAck)
                         if len(windowlist) == 0:
+                            print("......\n")
+                            print("DATA Finished\n\n")
                             print("Connection Teardown:\n")
                             finish(clientSocket,serverName, serverPort)
                             print("Fin packet is sent")
+                    
                 elif serverAck != base:
                     print(f"ACK mismatch: expected {base} but got {serverAck}")
                 
