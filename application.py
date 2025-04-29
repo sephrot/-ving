@@ -43,14 +43,14 @@ def sendAck(clientSocket, serverAddress):
     clientSocket.sendto(data, (serverAddress))
 
 
-serverName = "127.0.0.1"
+serverName = "10.0.0.1"
 serverPort = 12000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 print("Connection Establishment Phase: \n")
 seqNum = 0
 ack = 1
 flags = 0
-window = 5
+window = 25
 
 
 
@@ -91,7 +91,7 @@ def main():
     flags = 0
     nextSeqNum = 1
     windowlist = []
-    datalist = []
+    datalist = {}
     clientSocket.settimeout(0.4)
     try:
         startHandshake()
@@ -106,12 +106,12 @@ def main():
                 break
     
             while nextSeqNum <= base + window and packet:    
-
+        
                 data = createPacket(nextSeqNum, ack, flags, window, packet)
                 windowlist.append(nextSeqNum)
-                datalist.append((data))
+                datalist[nextSeqNum] = data
                 clientSocket.sendto(data, (serverName, serverPort))
-
+                time.sleep(0.001)
                 
                 print(f"{now()} -- packet with seq = {nextSeqNum} is sent, sliding window = ", windowlist)
                 nextSeqNum += 1
@@ -121,6 +121,7 @@ def main():
                 serverAck = parseHeader(message[:8])[1]
                 
                 if serverAck > base:
+                    print("ServerAck: ", serverAck, " Base: ", base)
                     print(f"ACK {serverAck} received correctly")
                     base = serverAck
                     if (serverAck) in windowlist:
@@ -130,7 +131,7 @@ def main():
                 else:
                     print(f"ACK mismatch: expected {base} but got {serverAck}")
                     
-            except timeout:
+            except socket.timeout:
                 print("Timeout occurred! Need to retransmit packet.")
                 for seq in windowlist:
                     clientSocket.sendto(datalist[seq],(serverName, serverPort))

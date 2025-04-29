@@ -77,28 +77,35 @@ while True:
         elif cFlags == 2:
             print("Server: Connection established")
             print("Ready to recieve data")
-            flags = 0
             break
     except Exception as e:
         print("Something went wrong.")
 
-
+flags = 0
+received_packets = {}
 while True:
+    print("ACK: ", ack)
     try:
-        print("This is the ACK number: ", ack)
         message, clientAddress = serverSocket.recvfrom(1000)
         clientHeader = parseHeader(message[:8])
         
         clientSeqNum = clientHeader[0]
         cAckNum = clientHeader[1] #the clients expected ack num from the server
         cFlags = clientHeader[2]
-
-        if ack == clientSeqNum:  
-            print(message[8:].decode())
-            sendAck(serverSocket, clientAddress)
+        data = message[8:].decode()      
+        
+        if ack == clientSeqNum:
+            print("Expected: ", ack, " Actual: ", clientSeqNum, "\n")
+            print(data)
+            received_packets[clientSeqNum] = data
             ack += 1
         else:
+            print(f"This one ran {ack} <- This is ACK, and {clientSeqNum} <- this is the what the client sent")
             sendAck(serverSocket, clientAddress)
+            if clientSeqNum not in received_packets:
+                received_packets[clientSeqNum] = data
+                
+        sendAck(serverSocket, clientAddress)
     except ConnectionResetError:
          print("No more data left!")
          break
