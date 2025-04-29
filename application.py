@@ -88,7 +88,8 @@ def startHandshake():
 def main():
     global seqNum
     base = 0
-    nextSeqNum = 0
+    flags = 0
+    nextSeqNum = 1
     windowlist = []
     datalist = []
     clientSocket.settimeout(0.4)
@@ -104,7 +105,7 @@ def main():
                 print("End of file reached")
                 break
     
-            while nextSeqNum < base + window and packet:    
+            while nextSeqNum <= base + window and packet:    
 
                 data = createPacket(nextSeqNum, ack, flags, window, packet)
                 windowlist.append(nextSeqNum)
@@ -118,19 +119,21 @@ def main():
             try:
                 message, serverAddress = clientSocket.recvfrom(2048)
                 serverAck = parseHeader(message[:8])[1]
-
+                
                 if serverAck > base:
                     print(f"ACK {serverAck} received correctly")
                     base = serverAck
-                    if (serverAck - 1) in windowlist:
-                        windowlist.remove(serverAck - 1)
+                    if (serverAck) in windowlist:
+                        #print("Debug 1: ", windowlist)
+                        windowlist.remove(serverAck)
+                        #print("Debug 2: ", windowlist)
                 else:
-                    print(f"ACK mismatch: expected {seqNum} but got {serverAck}")
+                    print(f"ACK mismatch: expected {base} but got {serverAck}")
                     
             except timeout:
                 print("Timeout occurred! Need to retransmit packet.")
-                for data in datalist:
-                    clientSocket.sendto(data,(serverName, serverPort))
+                for seq in windowlist:
+                    clientSocket.sendto(datalist[seq],(serverName, serverPort))
                 
 
 if __name__ == "__main__":

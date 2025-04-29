@@ -85,6 +85,7 @@ while True:
 
 while True:
     try:
+        print("This is the ACK number: ", ack)
         message, clientAddress = serverSocket.recvfrom(1000)
         clientHeader = parseHeader(message[:8])
         
@@ -94,8 +95,8 @@ while True:
 
         if ack == clientSeqNum:  
             print(message[8:].decode())
-            ack += 1
             sendAck(serverSocket, clientAddress)
+            ack += 1
         else:
             sendAck(serverSocket, clientAddress)
     except ConnectionResetError:
