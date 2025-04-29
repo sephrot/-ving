@@ -43,7 +43,8 @@ def sendAck(clientSocket, serverAddress):
     clientSocket.sendto(data, (serverAddress))
 
 
-serverName = "10.0.0.1"
+
+serverName = "127.0.0.1"
 serverPort = 12000
 clientSocket = socket(AF_INET, SOCK_DGRAM)
 print("Connection Establishment Phase: \n")
@@ -51,7 +52,7 @@ seqNum = 0
 ack = 1
 flags = 0
 window = 25
-
+nextSeqSum = 1
 
 
 def startHandshake():
@@ -83,10 +84,13 @@ def startHandshake():
             print("Timeout occurred! Need to retransmit or handle it.")
 
 
-
+def finish(clientSocket, serverName, serverPort):
+    flags = 0b1000
+    data = createPacket(nextSeqNum, ack, flags, window, None)
+    clientSocket.sendto(data, (serverName,serverPort))
         
 def main():
-    global seqNum
+    global nextSeqNum
     base = 0
     flags = 0
     nextSeqNum = 1
@@ -100,13 +104,17 @@ def main():
       
     with open("test.txt", "rb") as f:
         while True:
-            packet = f.read(992)
-            if not packet:
-                print("End of file reached")
-                break
+            
+
+            '''if not packet:
+                print("Connection Teardown:\n")
+                finish(clientSocket,serverName, serverPort)
+                print("Fin packet is sent")'''
     
-            while nextSeqNum <= base + window and packet:    
-        
+            while nextSeqNum <= base + window:    
+                packet = f.read(992)
+                if not packet:
+                    break
                 data = createPacket(nextSeqNum, ack, flags, window, packet)
                 windowlist.append(nextSeqNum)
                 datalist[nextSeqNum] = data
@@ -119,18 +127,28 @@ def main():
             try:
                 message, serverAddress = clientSocket.recvfrom(2048)
                 serverAck = parseHeader(message[:8])[1]
-                
-                if serverAck > base:
+                serverFlags = parseHeader(message[:8])[2]
+
+
+                if serverFlags == 0b1010:
+                    print("FIN ACK packet is recieved")
+                    print("Connection Closes")
+                    clientSocket.close()
+                    break
+                elif serverAck > base:
                     print("ServerAck: ", serverAck, " Base: ", base)
                     print(f"ACK {serverAck} received correctly")
                     base = serverAck
                     if (serverAck) in windowlist:
-                        #print("Debug 1: ", windowlist)
+                        
                         windowlist.remove(serverAck)
-                        #print("Debug 2: ", windowlist)
-                else:
+                        if len(windowlist) == 0:
+                            print("Connection Teardown:\n")
+                            finish(clientSocket,serverName, serverPort)
+                            print("Fin packet is sent")
+                elif serverAck != base:
                     print(f"ACK mismatch: expected {base} but got {serverAck}")
-                    
+                
             except socket.timeout:
                 print("Timeout occurred! Need to retransmit packet.")
                 for seq in windowlist:
@@ -140,5 +158,4 @@ def main():
 if __name__ == "__main__":
     main()
 
-clientSocket.close()
 

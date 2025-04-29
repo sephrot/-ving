@@ -54,66 +54,83 @@ def sendSynAck(serverSocket, clientAddress):
 
 def now():
 	return time.ctime(time.time())
+def serverHandshake():
+    global seq, ack
+    while True:
+        try:
+            message, clientAddress = serverSocket.recvfrom(1000)
+            clientHeader = parseHeader(message[:8])
+            
+            clientSeqNum = clientHeader[0]
+            cAckNum = clientHeader[1] #the clients expected ack num from the server
+            cFlags = clientHeader[2]
 
-while True:
-    try:
-        message, clientAddress = serverSocket.recvfrom(1000)
-        clientHeader = parseHeader(message[:8])
+            data = message[8:].decode()
+
+            if cFlags == 4:
+                ack += 1
+                print("SYN packet is recieved")
+                sendSynAck(serverSocket, clientAddress)
+                print("Amount of times client has sent to me: ", clientSeqNum)    
+                print("SYN-ACK packet is sent")
+                seq+=1
+
+            elif cFlags == 2:
+                print("Server: Connection established")
+                print("Ready to recieve data")
+                break
+        except Exception as e:
+            print("Something went wrong.", e)
+
+def main():
+    global ack, seq
+    print(ack)
+    serverHandshake()
+    print(ack)
+    flags = 0
+    received_packets = {}
+    while True:
         
-        clientSeqNum = clientHeader[0]
-        cAckNum = clientHeader[1] #the clients expected ack num from the server
-        cFlags = clientHeader[2]
-
-        data = message[8:].decode()
-
-        if cFlags == 4:
-            ack += 1
-            print("SYN packet is recieved")
-            sendSynAck(serverSocket, clientAddress)
-            print("Amount of times client has sent to me: ", clientSeqNum)    
-            print("SYN-ACK packet is sent")
-            seq+=1
-
-        elif cFlags == 2:
-            print("Server: Connection established")
-            print("Ready to recieve data")
-            break
-    except Exception as e:
-        print("Something went wrong.")
-
-flags = 0
-received_packets = {}
-while True:
-    print("ACK: ", ack)
-    try:
-        message, clientAddress = serverSocket.recvfrom(1000)
-        clientHeader = parseHeader(message[:8])
-        
-        clientSeqNum = clientHeader[0]
-        cAckNum = clientHeader[1] #the clients expected ack num from the server
-        cFlags = clientHeader[2]
-        data = message[8:].decode()      
-        
-        if ack == clientSeqNum:
-            print("Expected: ", ack, " Actual: ", clientSeqNum, "\n")
-            print(data)
-            received_packets[clientSeqNum] = data
-            ack += 1
-        else:
-            print(f"This one ran {ack} <- This is ACK, and {clientSeqNum} <- this is the what the client sent")
-            sendAck(serverSocket, clientAddress)
-            if clientSeqNum not in received_packets:
+        try:
+            message, clientAddress = serverSocket.recvfrom(1000)
+            clientHeader = parseHeader(message[:8])
+            
+            clientSeqNum = clientHeader[0]
+            clientFlag = clientHeader[2]
+            data = message[8:].decode()      
+            
+            if ack == clientSeqNum:
+                print("Expected: ", ack, " Actual: ", clientSeqNum, "\n")
                 received_packets[clientSeqNum] = data
-                
-        sendAck(serverSocket, clientAddress)
-    except ConnectionResetError:
-         print("No more data left!")
-         break
+                sendAck(serverSocket, clientAddress)
+                ack += 1
+            else:
+                sendAck(serverSocket, clientAddress)
+                if clientSeqNum not in received_packets:
+                    received_packets[clientSeqNum] = data
+                    
+
+            if clientFlag == 0b1000:
+                print("FIN packet is recieved")
+                flags = 0b1010
+                data = createPacket(seq, ack, flags, 5, None)
+                serverSocket.sendto(data, clientAddress)
+                print("Fin ACK packet is sent.")
+                print("Connection Closes")
+
+                print("\n--- Assembled file from client ---")
+                for i in sorted(received_packets.keys()):
+                    print(received_packets[i], end='')
+                break
+        except ConnectionResetError:
+            print("No more data left!")
+            break
           
     
      
        
-
+if __name__ == "__main__":
+    main()
 
 
          
