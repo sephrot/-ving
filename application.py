@@ -21,7 +21,8 @@ parser.add_argument('-i' , '--ip', type=str, required=True) #uses parser variabl
 parser.add_argument('-p' , '--port', type=int, required=True)
 parser.add_argument('-f' , '--file', type=str, required=False)
 parser.add_argument('-w' , '--window', type=str, required=False)
-
+parser.add_argument('-d', '--discard', type=int, required = False,
+                    help='Sequence number to discard once for retransmission testing')
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument('-s', '--server', action='store_true', help='Run as server')
 group.add_argument('-c', '--client', action='store_true', help='Run as client')
@@ -156,9 +157,11 @@ def clientSending():
                     print("Connection Closes")
                     clientSocket.close()
                     break
+                
                 elif serverAck > base:
+                    print(f"Sliding window moved: base updated to {base}")
                     base = serverAck
-                    print(f"{now()} -- ACK for packet is {serverAck} received")
+                    #print(f"{now()} -- ACK for packet is {serverAck} received")
                     if (serverAck) in windowlist:
                         windowlist.remove(serverAck)
                         if len(windowlist) == 0:
@@ -173,13 +176,13 @@ def clientSending():
                 
             except socket.timeout:
                 print("Timeout occurred! Need to retransmit packet.")
-                for seq in windowlist:
+                for seq in range(base, nextSeqNum):
                     clientSocket.sendto(datalist[seq],(serverName, serverPort))
 
     
 def serverHandshake():
     serverSocket.bind((serverName, serverPort))
-    global seq, serverAAck
+    global serverAAck
     while True:
         try:
             message, clientAddress = serverSocket.recvfrom(1000)
@@ -197,7 +200,6 @@ def serverHandshake():
                 sendSynAck(serverSocket, clientAddress)
                 print("Amount of times client has sent to me: ", clientSeqNum)    
                 print("SYN-ACK packet is sent")
-                seq+=1
 
             elif cFlags == 2:
                 print("Server: Connection established")
@@ -208,13 +210,15 @@ def serverHandshake():
 
 def serverSide():
     global serverAAck, seq
-    print(serverAAck)
+    discard_seq = args.discard
+    discarded = False
+
     serverHandshake()
-    print(serverAAck)
+
     flags = 0
     received_packets = {}
     start_time = None
-
+    end_time = None
     while True:
 
 
@@ -229,6 +233,11 @@ def serverSide():
 
             if start_time is None and clientFlag != 0b1000:
                 start_time = time.time()
+            print(clientSeqNum, " ", discard_seq)
+            if clientSeqNum == discard_seq and not discarded:
+                print(f"[TEST] Discarding packet with seq = {clientSeqNum} once to test retransmission")
+                discarded = True
+                continue  # Simulate loss by not ACKing or storing the packet
 
             if serverAAck == clientSeqNum:
                 print("Expected: ", serverAAck, " Actual: ", clientSeqNum, "\n")
@@ -236,9 +245,8 @@ def serverSide():
                 sendAck(serverSocket, clientAddress, 1, serverAAck)
                 serverAAck += 1
             else:
-                sendAck(serverSocket, clientAddress, 1, serverAAck)
-                if clientSeqNum not in received_packets:
-                    received_packets[clientSeqNum] = data
+                print(f"Out-of-order packet {clientSeqNum} received. Expected {serverAAck}. Discarding.")
+                
                     
 
             if clientFlag == 0b1000:
