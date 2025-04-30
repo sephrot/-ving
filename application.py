@@ -110,9 +110,13 @@ def clientHandshake():
                 sendAck(clientSocket, serverAddress,1,clientAck)
                 print("ACK packet is sent")
                 print("Connection Established\n")
-                break  
+                return True 
         except timeout:
             print("Timeout occurred! Need to retransmit or handle it.")
+        except ConnectionResetError:
+             print("\nConnection failed")
+             return False
+        
 
 
 
@@ -126,10 +130,12 @@ def clientSending():
     windowlist = []
     datalist = {}
     clientSocket.settimeout(0.4)
-    try:
+    if clientHandshake():
         clientHandshake()
-    except Exception as e:
-        print(e, " Some error happened during the handshake")
+    else:
+        clientSocket.close()
+        sys.exit(1)
+   
       
     with open(filepath, "rb") as f:
         while True:
@@ -277,7 +283,7 @@ def serverSide():
 
 def main():
     if runClient:
-        print("Starting server...")      
+        print("Starting client...\n")      
         clientSending()
     if runServer:
         print("Staring server...")
