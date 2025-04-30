@@ -213,7 +213,11 @@ def serverSide():
     print(serverAAck)
     flags = 0
     received_packets = {}
+    start_time = None
+
     while True:
+
+
         
         try:
             message, clientAddress = serverSocket.recvfrom(1000)
@@ -222,7 +226,10 @@ def serverSide():
             clientSeqNum = clientHeader[0]
             clientFlag = clientHeader[2]
             data = message[8:]     
-            
+
+            if start_time is None and clientFlag != 0b1000:
+                start_time = time.time()
+
             if serverAAck == clientSeqNum:
                 print("Expected: ", serverAAck, " Actual: ", clientSeqNum, "\n")
                 received_packets[clientSeqNum] = data
@@ -235,6 +242,7 @@ def serverSide():
                     
 
             if clientFlag == 0b1000:
+                end_time = time.time()
                 print("FIN packet is recieved")
                 flags = 0b1010
                 data = createPacket(1, serverAAck, flags, 5, None)
@@ -247,8 +255,13 @@ def serverSide():
         except ConnectionResetError:
             print("No more data left!")
             break
-          
-    
+
+    duration = end_time - start_time
+    total_bytes = sum(len(received_packets[i]) for i in received_packets)
+    throughput_mbps = (total_bytes * 8) / (duration * 1_000_000)
+
+    print(f"Throughput: {throughput_mbps:.3f} Mbps")
+     
     with open("1.jpg", "wb") as f:
         for i in sorted(received_packets.keys()):
             f.write(received_packets[i])
